@@ -7,7 +7,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     <SessionProvider
       refetchInterval={0}
       refetchOnWindowFocus={false}
-      suppressHydrationWarning
     >
       {children}
     </SessionProvider>
