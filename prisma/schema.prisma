@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("USER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contacts       Contact[]
+  companies      Company[]
+  interactions   Interaction[]
+  notes          Note[]
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  domain      String?
+  industry    String?
+  size        String?
+  phone       String?
+  address     String?
+  city         String?
+  country     String?
+  website     String?
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  contacts    Contact[]
+  interactions Interaction[]
+}
+
+model Contact {
+  id            String   @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  jobTitle      String?
+  department    String?
+  status        String   @default("LEAD")
+  source        String?
+  avatar        String?
+  linkedIn      String?
+  twitter       String?
+  birthday      DateTime?
+  timezone      String?
+  rating        Int      @default(3)
+  isFavorite   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  companyId     String?
+  company       Company? @relation(fields: [companyId], references: [id])
+  
+  tags          ContactTag[]
+  interactions  Interaction[]
+  notes         Note[]
+  customFields  CustomFieldValue[]
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#6366f1")
+  createdAt DateTime @default(now())
+
+  contacts  ContactTag[]
+}
+
+model ContactTag {
+  contactId String
+  tagId     String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, tagId])
+}
+
+model Interaction {
+  id          String   @id @default(cuid())
+  type        String
+  subject     String
+  description String?
+  date        DateTime @default(now())
+  duration    Int?
+  outcome     String?
+  createdAt   DateTime @default(now())
+
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Note {
+  id          String   @id @default(cuid())
+  content     String
+  isPinned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model CustomField {
+  id          String   @id @default(cuid())
+  name        String
+  fieldType   String
+  options     String?
+  required    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  values      CustomFieldValue[]
+}
+
+model CustomFieldValue {
+  id        String   @id @default(cuid())
+  value     String
+  
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  fieldId   String
+  field     CustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, fieldId])
+}
+
+model DataEntry {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String
+  status      String   @default("ACTIVE")
+  value       Float
+  metadata    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
