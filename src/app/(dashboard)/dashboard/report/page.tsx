@@ -6,134 +6,175 @@ import {
   FileText,
   Download,
   Calendar,
-  Filter,
-  Loader2,
-  FileSpreadsheet,
-  FileJson,
+  Building2,
+  MapPin,
+  Package,
+  Users,
   ChevronDown,
-  X,
-  RefreshCw,
+  Printer,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { useData } from "@/components/providers/DataContext";
-import type { DataEntry } from "@/types";
 
-interface ReportConfig {
-  dataSource: string;
-  startDate: string;
-  endDate: string;
-  filters: {
-    includeInactive: boolean;
-    includePending: boolean;
-    selectedCategories: string[];
-  };
+interface DistributionData {
+  subCity: string;
+  woreda: string;
+  numberOfCustomers: number;
+  communitiesReceived: number;
+  institutionCustomers: number;
+  nursingMothersQuintals: number;
+  communityQuintals: number;
+  institutionQuintals: number;
+  totalQuintals: number;
 }
 
-const dataSources = [
-  { value: "all", label: "All Data" },
-  { value: "sales", label: "Sales Records" },
-  { value: "user_activity", label: "User Activity" },
-  { value: "inventory", label: "Inventory" },
+const months = [
+  "ጥር", "ፈጋ", "ሚያዝያ", "ግንቦት", "ሰኔ", "ሐምሌ",
+  "ነሐሴ", "መስከረም", "ጥቅምት", "ሕዳር", "ታህሳስ", "ጥሪ"
 ];
 
-const categories = ["General", "Analytics", "Storage", "Network", "Security", "Marketing"];
+const subCities = [
+  "ንፋስ ስልክ ላፍቶ",
+  "አራት ኪሎ",
+  "ቦሌ",
+  "ጎጎ",
+  "ወራጅ",
+  "አባሶ",
+  "ልደታ",
+  "ጉለሌ"
+];
 
 export default function ReportPage() {
   const { data } = useData();
-  const [loading, setLoading] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(0);
+  const [reportType, setReportType] = useState<"subcity" | "woreda">("subcity");
+  const [selectedSubCity, setSelectedSubCity] = useState("");
+  const [selectedWoreda, setSelectedWoreda] = useState("");
   const [reportGenerated, setReportGenerated] = useState(false);
-  const [config, setConfig] = useState<ReportConfig>({
-    dataSource: "all",
-    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    endDate: new Date().toISOString().split("T")[0],
-    filters: {
-      includeInactive: false,
-      includePending: true,
-      selectedCategories: [],
-    },
-  });
+  const [loading, setLoading] = useState(false);
 
-  const uniqueCategories = useMemo(() => {
-    const cats = new Set(data.map((d) => d.category));
-    return Array.from(cats);
+  const distributionData = useMemo(() => {
+    return data
+      .filter(d => d.category === "Distribution")
+      .map(d => {
+        const parts = d.title?.split(" - ") || [];
+        return {
+          subCity: parts[0] || "Unknown",
+          woreda: parts[1] || "Unknown",
+          numberOfCustomers: parseInt(d.description?.match(/Customers: (\d+)/)?.[1] || "0"),
+          communitiesReceived: parseInt(d.description?.match(/Communities: (\d+)/)?.[1] || "0"),
+          institutionCustomers: 0,
+          nursingMothersQuintals: 0,
+          communityQuintals: 0,
+          institutionQuintals: 0,
+          totalQuintals: d.value || 0,
+        } as DistributionData;
+      });
   }, [data]);
 
-  const filteredData = useMemo(() => {
-    const startDate = new Date(config.startDate);
-    const endDate = new Date(config.endDate);
-    endDate.setHours(23, 59, 59, 999);
+  const subCityData = useMemo(() => {
+    if (!selectedSubCity) return null;
+    return distributionData.filter(d => d.subCity === selectedSubCity);
+  }, [distributionData, selectedSubCity]);
 
-    return data.filter((item) => {
-      const itemDate = new Date(item.createdAt);
-      const inDateRange = itemDate >= startDate && itemDate <= endDate;
-      const inCategory =
-        config.filters.selectedCategories.length === 0 ||
-        config.filters.selectedCategories.includes(item.category);
-      const includeStatus =
-        (config.filters.includeInactive || item.status !== "INACTIVE") &&
-        (config.filters.includePending || item.status !== "PENDING");
+  const woredaData = useMemo(() => {
+    if (!selectedSubCity || !selectedWoreda) return null;
+    return distributionData.filter(d => d.subCity === selectedSubCity && d.woreda === selectedWoreda);
+  }, [distributionData, selectedSubCity, selectedWoreda]);
 
-      return inDateRange && inCategory && includeStatus;
-    });
-  }, [data, config]);
+  const generateSubCityReport = () => {
+    if (!subCityData) return null;
+    
+    const total = subCityData.reduce((acc, d) => ({
+      customers: acc.customers + d.numberOfCustomers,
+      communities: acc.communities + d.communitiesReceived,
+      institutionCustomers: acc.institutionCustomers + d.institutionCustomers,
+      nursingMothers: acc.nursingMothers + d.nursingMothersQuintals,
+      community: acc.community + d.communityQuintals,
+      institution: acc.institution + d.institutionQuintals,
+      total: acc.total + d.totalQuintals,
+    }), { customers: 0, communities: 0, institutionCustomers: 0, nursingMothers: 0, community: 0, institution: 0, total: 0 });
 
-  const previewData = useMemo(() => {
-    return filteredData.slice(0, 10);
-  }, [filteredData]);
+    const received = total.total + 50;
+    const remaining = 50;
+
+    return `
+ለ ${selectedSubCity} ንግድ ጽሕፈት ቤት
+አ.አ
+
+ጉዳዩ፡- በ${months[selectedMonth]} ወር በ${selectedSubCity} ክፍለ ከተማ የተሰራ ስራ ሪፖርት
+
+የዚህ ወር ኮታ ${received} ኩንታል ከማእከላዊ ተቋም ተረክበናል። ከዚህ ውስጥ ጠቅላላ የተረከቡ ደንበኞች ${total.customers} ደንበኞች ነው። ለማህበረሰብ በኩንታል ${total.community} ኩንታል ተሰራጨ። ለተቋም በኩንታል ${total.institution} ኩንታል ተሰራጨ እና ${total.institutionCustomers} ደንበኞች ተጠቃሚ ሆነዋል። ለምግብ እናቶች ${total.nursingMothers} ኩንታል ተሰራጨ። ጠቅላላ የተሰራጨው ምርት ${total.total} ኩንታል ነው። ቀሪ ምርት ${remaining} ኩንታል በድምፅ ቤት ውስጥ ይገኛል።
+
+ከሰላምታ ጋር።
+
+የቅርንጫፍ ስራ አስኪያጅ
+___________________
+___________________
+
+ግልባጭ
+• ለፋይል
+`;
+  };
+
+  const generateWoredaReport = () => {
+    if (!woredaData) return null;
+    
+    const total = woredaData.reduce((acc, d) => ({
+      customers: acc.customers + d.numberOfCustomers,
+      beneficiaries: acc.beneficiaries + d.communitiesReceived,
+      total: acc.total + d.totalQuintals,
+    }), { customers: 0, beneficiaries: 0, total: 0 });
+
+    const letter = `
+ለ ${selectedSubCity} ክፍለ ከተማ ወረዳ ${selectedWoreda} ንግድ ጽሕፈት ቤት
+አ.አ
+
+ጉዳዩ፡- የ${months[selectedMonth]} ወር ኮታ የተሰራጨ ሪፖርት ስላሳወቅ
+
+የዚህ ወር ኮታ ተረክበናል። ጠቅላላ የተመዘገቡ ደንበኞች ${total.customers} ናቸው። ለማህበረሰብ በቤት በቤት የተሰራጨ ሲሆን ጠቅላላ የተሰራጨ ምርት ${total.total} ኩንታል ነው። ዝርዝር ሪፖርትና ሰንጠረዡ ይያያዛል።
+
+ከሰላምታ ጋር።
+
+የቅርንጫፍ ስራ አስኪያጅ
+___________________
+___________________
+
+ግልባጭ
+• ለፋይል
+`;
+
+    const tableRows = woredaData.map((d, i) => `
+    <tr>
+      <td style="padding: 8px; border: 1px solid #ddd;">ወረዳ - ${selectedWoreda} - ${d.woreda.includes("ማህበረሰብ") ? "ለማህበረሰብ" : "ለተቋም"}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">ዙር - ${i + 1}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${d.numberOfCustomers}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${d.communitiesReceived}</td>
+      <td style="padding: 8px; border: 1px solid #ddd;">${d.totalQuintals}</td>
+    </tr>
+    `).join("");
+
+    return { letter, tableRows, total };
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
-    setReportGenerated(false);
-    
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
+    await new Promise(resolve => setTimeout(resolve, 1000));
     setLoading(false);
     setReportGenerated(true);
   };
 
-  const handleExport = async (format: "csv" | "json") => {
-    setLoading(true);
-    
-    try {
-      const response = await fetch("/api/report/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...config, format }),
-      });
-
-      if (!response.ok) throw new Error("Export failed");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `report-${config.dataSource}-${Date.now()}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error("Export error:", error);
-    } finally {
-      setLoading(false);
-    }
+  const handlePrint = () => {
+    window.print();
   };
 
-  const resetReport = () => {
-    setReportGenerated(false);
-    setConfig({
-      dataSource: "all",
-      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      endDate: new Date().toISOString().split("T")[0],
-      filters: {
-        includeInactive: false,
-        includePending: true,
-        selectedCategories: [],
-      },
-    });
-  };
+  const availableWoredas = useMemo(() => {
+    if (!selectedSubCity) return [];
+    const woredas = new Set(distributionData.filter(d => d.subCity === selectedSubCity).map(d => d.woreda));
+    return Array.from(woredas);
+  }, [distributionData, selectedSubCity]);
 
   return (
     <div className="space-y-8">
@@ -145,7 +186,7 @@ export default function ReportPage() {
           Report Generator
         </h1>
         <p className="text-text-secondary mt-1">
-          Generate and export custom reports from your data.
+          Generate official distribution reports for Sub-Cities and Woredas.
         </p>
       </motion.div>
 
@@ -160,168 +201,140 @@ export default function ReportPage() {
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm text-text-secondary">Data Source</label>
+                <label className="text-sm text-text-secondary">Report Type</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setReportType("subcity"); setSelectedWoreda(""); }}
+                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                      reportType === "subcity"
+                        ? "bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/30"
+                        : "bg-glass-bg text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    Sub-City (ክፍለ ከተማ)
+                  </button>
+                  <button
+                    onClick={() => setReportType("woreda")}
+                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                      reportType === "woreda"
+                        ? "bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/30"
+                        : "bg-glass-bg text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    Woreda (ወረዳ)
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm text-text-secondary">Month (ወር)</label>
                 <div className="relative">
                   <select
-                    value={config.dataSource}
-                    onChange={(e) => setConfig({ ...config, dataSource: e.target.value })}
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
                     className="w-full h-11 rounded-lg border border-glass-border bg-bg-secondary px-4 text-sm text-text-primary appearance-none pr-10"
                   >
-                    {dataSources.map((source) => (
-                      <option key={source.value} value={source.value}>
-                        {source.label}
-                      </option>
+                    {months.map((month, index) => (
+                      <option key={index} value={index}>{month}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm text-text-secondary flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  Sub-City (ክፍለ ከተማ)
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedSubCity}
+                    onChange={(e) => { setSelectedSubCity(e.target.value); setSelectedWoreda(""); }}
+                    className="w-full h-11 rounded-lg border border-glass-border bg-bg-secondary px-4 text-sm text-text-primary appearance-none pr-10"
+                  >
+                    <option value="">Select Sub-City</option>
+                    {subCities.map(subCity => (
+                      <option key={subCity} value={subCity}>{subCity}</option>
                     ))}
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm text-text-secondary">Date Range</label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="date"
-                      value={config.startDate}
-                      onChange={(e) => setConfig({ ...config, startDate: e.target.value })}
-                      className="w-full h-11 rounded-lg border border-glass-border bg-bg-secondary px-4 text-sm text-text-primary"
-                    />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
-                  </div>
-                  <span className="flex items-center text-text-muted">to</span>
-                  <div className="relative flex-1">
-                    <input
-                      type="date"
-                      value={config.endDate}
-                      onChange={(e) => setConfig({ ...config, endDate: e.target.value })}
-                      className="w-full h-11 rounded-lg border border-glass-border bg-bg-secondary px-4 text-sm text-text-primary"
-                    />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-sm text-text-secondary flex items-center gap-2">
-                <Filter className="w-4 h-4" />
-                Filters
-              </label>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={config.filters.includeInactive}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        filters: { ...config.filters, includeInactive: e.target.checked },
-                      })
-                    }
-                    className="w-4 h-4 rounded border-glass-border bg-bg-secondary text-accent-cyan focus:ring-accent-cyan"
-                  />
-                  <span className="text-sm text-text-primary">Include Inactive</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={config.filters.includePending}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        filters: { ...config.filters, includePending: e.target.checked },
-                      })
-                    }
-                    className="w-4 h-4 rounded border-glass-border bg-bg-secondary text-accent-cyan focus:ring-accent-cyan"
-                  />
-                  <span className="text-sm text-text-primary">Include Pending</span>
-                </label>
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-sm text-text-secondary">Categories</span>
-                <div className="flex flex-wrap gap-2">
-                  {uniqueCategories.map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => {
-                        const selected = config.filters.selectedCategories.includes(cat)
-                          ? config.filters.selectedCategories.filter((c) => c !== cat)
-                          : [...config.filters.selectedCategories, cat];
-                        setConfig({
-                          ...config,
-                          filters: { ...config.filters, selectedCategories: selected },
-                        });
-                      }}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-sm transition-all",
-                        config.filters.selectedCategories.includes(cat)
-                          ? "bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/30"
-                          : "bg-glass-bg text-text-secondary hover:text-text-primary"
-                      )}
+              {reportType === "woreda" && (
+                <div className="space-y-2">
+                  <label className="text-sm text-text-secondary flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    Woreda (ወረዳ)
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedWoreda}
+                      onChange={(e) => setSelectedWoreda(e.target.value)}
+                      className="w-full h-11 rounded-lg border border-glass-border bg-bg-secondary px-4 text-sm text-text-primary appearance-none pr-10"
+                      disabled={!selectedSubCity}
                     >
-                      {cat}
-                    </button>
-                  ))}
+                      <option value="">Select Woreda</option>
+                      {availableWoredas.map(woreda => (
+                        <option key={woreda} value={woreda}>{woreda}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3 pt-4">
-              <Button onClick={handleGenerate} disabled={loading} className="gap-2">
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="hidden sm:inline">Generating...</span>
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4" />
-                    <span className="hidden sm:inline">Generate Report</span>
-                    <span className="sm:hidden">Generate</span>
-                  </>
-                )}
-              </Button>
-              {reportGenerated && (
-                <>
-                  <Button variant="outline" onClick={() => handleExport("csv")} disabled={loading} className="gap-2">
-                    <FileSpreadsheet className="w-4 h-4" />
-                    <span className="hidden sm:inline">Export CSV</span>
-                  </Button>
-                  <Button variant="outline" onClick={() => handleExport("json")} disabled={loading} className="gap-2">
-                    <FileJson className="w-4 h-4" />
-                    <span className="hidden sm:inline">Export JSON</span>
-                  </Button>
-                </>
               )}
             </div>
+
+            <Button 
+              onClick={handleGenerate} 
+              disabled={loading || (reportType === "woreda" && !selectedWoreda) || !selectedSubCity}
+              className="gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <FileText className="w-4 h-4" />
+                  Generate Report
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="font-[family-name:var(--font-outfit)]">Report Summary</CardTitle>
+            <CardTitle className="font-[family-name:var(--font-outfit)]">Summary</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="p-4 rounded-lg bg-glass-bg">
-              <p className="text-sm text-text-muted">Total Records</p>
-              <p className="text-2xl font-bold text-text-primary">{filteredData.length}</p>
-            </div>
-            <div className="p-4 rounded-lg bg-glass-bg">
-              <p className="text-sm text-text-muted">Preview Rows</p>
-              <p className="text-2xl font-bold text-text-primary">{previewData.length}</p>
-            </div>
-            <div className="p-4 rounded-lg bg-glass-bg">
-              <p className="text-sm text-text-muted">Active Records</p>
-              <p className="text-2xl font-bold text-accent-cyan">
-                {filteredData.filter((d) => d.status === "ACTIVE").length}
+              <p className="text-sm text-text-muted">Report Type</p>
+              <p className="text-xl font-bold text-text-primary">
+                {reportType === "subcity" ? "Sub-City" : "Woreda"}
               </p>
             </div>
             <div className="p-4 rounded-lg bg-glass-bg">
-              <p className="text-sm text-text-muted">Total Value</p>
+              <p className="text-sm text-text-muted">Data Records</p>
+              <p className="text-2xl font-bold text-accent-cyan">
+                {reportType === "subcity" 
+                  ? (selectedSubCity ? subCityData?.length || 0 : 0)
+                  : (selectedWoreda ? woredaData?.length || 0 : 0)
+                }
+              </p>
+            </div>
+            <div className="p-4 rounded-lg bg-glass-bg">
+              <p className="text-sm text-text-muted">Total (Quintals)</p>
               <p className="text-2xl font-bold text-accent-purple">
-                ${filteredData.reduce((sum, d) => sum + d.value, 0).toLocaleString()}
+                {reportType === "subcity"
+                  ? (subCityData?.reduce((sum, d) => sum + d.totalQuintals, 0) || 0).toLocaleString()
+                  : (woredaData?.reduce((sum, d) => sum + d.totalQuintals, 0) || 0).toLocaleString()
+                }
               </p>
             </div>
           </CardContent>
@@ -335,53 +348,45 @@ export default function ReportPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
           >
-            <Card>
+            <Card className="print:border-0 print:shadow-none">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="font-[family-name:var(--font-outfit)]">
-                  Preview (First 10 Rows)
+                  Generated Report - {months[selectedMonth]} {reportType === "woreda" ? `- ${selectedWoreda}` : ""}
                 </CardTitle>
-                <Button variant="ghost" size="sm" onClick={resetReport}>
-                  <X className="w-4 h-4 mr-1" />
-                  Clear
+                <Button variant="outline" onClick={handlePrint} className="gap-2 print:hidden">
+                  <Printer className="w-4 h-4" />
+                  Print
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-glass-border">
-                        <th className="text-left p-3 text-text-muted font-medium">Title</th>
-                        <th className="text-left p-3 text-text-muted font-medium">Category</th>
-                        <th className="text-left p-3 text-text-muted font-medium">Status</th>
-                        <th className="text-left p-3 text-text-muted font-medium">Value</th>
-                        <th className="text-left p-3 text-text-muted font-medium">Created</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewData.map((item) => (
-                        <tr key={item.id} className="border-b border-glass-border hover:bg-glass-bg">
-                          <td className="p-3 text-text-primary">{item.title}</td>
-                          <td className="p-3 text-text-secondary">{item.category}</td>
-                          <td className="p-3">
-                            <span
-                              className={cn(
-                                "px-2 py-1 rounded-full text-xs",
-                                item.status === "ACTIVE" && "bg-accent-cyan/20 text-accent-cyan",
-                                item.status === "INACTIVE" && "bg-red-500/20 text-red-400",
-                                item.status === "PENDING" && "bg-yellow-500/20 text-yellow-400"
-                              )}
-                            >
-                              {item.status}
-                            </span>
-                          </td>
-                          <td className="p-3 text-text-primary">${item.value.toLocaleString()}</td>
-                          <td className="p-3 text-text-muted">
-                            {new Date(item.createdAt).toLocaleDateString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="bg-white text-gray-900 p-8 rounded-lg font-noto">
+                  {reportType === "subcity" ? (
+                    <pre className="whitespace-pre-wrap font-noto text-sm leading-relaxed">
+                      {generateSubCityReport()}
+                    </pre>
+                  ) : (
+                    <div>
+                      <pre className="whitespace-pre-wrap font-noto text-sm leading-relaxed mb-6">
+                        {generateWoredaReport()?.letter}
+                      </pre>
+                      <div className="mt-6">
+                        <table className="w-full border-collapse border border-gray-300">
+                          <thead>
+                            <tr className="bg-accent-cyan text-white">
+                              <th style={{ padding: "10px", border: "1px solid #ccc" }}>የተሰራበት ወረዳ</th>
+                              <th style={{ padding: "10px", border: "1px solid #ccc" }}>ስርጭት መርሃግብር</th>
+                              <th style={{ padding: "10px", border: "1px solid #ccc" }}>የደንበኞች ብዛት</th>
+                              <th style={{ padding: "10px", border: "1px solid #ccc" }}>ምርት የተረከቡ ደንበኞች ብዛት</th>
+                              <th style={{ padding: "10px", border: "1px solid #ccc" }}>ጠቅላላ በኩንታል</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {generateWoredaReport()?.tableRows}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

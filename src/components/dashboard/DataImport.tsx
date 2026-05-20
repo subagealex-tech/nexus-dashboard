@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { DataEntry } from "@/types";
+import { useData } from "@/components/providers/DataContext";
 
 interface ParsedData {
   headers: string[];
@@ -34,33 +35,49 @@ interface ValidationError {
   message: string;
 }
 
-const sampleData = [
-  { id: "1", title: "Q4 Sales Report", description: "Quarterly sales analysis", category: "Analytics", status: "ACTIVE", value: 12500 },
-  { id: "2", title: "Customer Database", description: "Customer records backup", category: "Storage", status: "ACTIVE", value: 45000 },
-  { id: "3", title: "Network Logs", description: "System network activity", category: "Network", status: "PENDING", value: 8200 },
-];
-
 interface FileFormatField {
   column: string;
+  amharicColumn: string;
   required: boolean;
+  type: string;
   example: string;
 }
 
+const amharicFields = {
+  serialNumber: ["ተ.ቁ", "ቁጥር", "serial", "id", "መለያ"],
+  subCity: ["ክፍለ ከተማ", "sub-city", "subcity", "ክፍለ"],
+  woreda: ["ወረዳ", "woreda", "district", "ወረዳ"],
+  numberOfCustomers: ["የደንበኛ ብዛት", "customers", "ደንበኛ", "ብዛት"],
+  communitiesReceived: ["ምርት የተረከቡ ማህበረሰብ ብዛት", "communities", "ማህበረሰብ", "ህብረተሰብ"],
+  institutionCustomers: ["ተቅዋም ላይ ተረከቡ ደንበኞች", "institution customers", "ተቅዋም"],
+  nursingMothersQuintals: ["ለምግብ እናቶች በ ኩንታል የተሰራጨ", "nursing mothers", "እናቶች", "ምግብ እናቶች"],
+  communityQuintals: ["ምርት የተሰራጨው ለማህበረሰብ በኩንታል", "community", "ማህበረሰብ"],
+  institutionQuintals: ["ተቅዋም ላይ የተሰራጨው በኩንታል", "institution", "ተቅዋም"],
+  totalQuintals: ["ጠቅላላ የተሰራጨው በ ኩንታል", "total", "ጠቅላላ", "ድምር"],
+};
+
 export default function DataImport({ onImport }: { onImport?: (data: Partial<DataEntry>[], fileName?: string, fileType?: "csv" | "xlsx") => void }) {
+  const { data, deleteMultiple } = useData();
   const [dragActive, setDragActive] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedData | null>(null);
   const [selectedColumns, setSelectedColumns] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [importStatus, setImportStatus] = useState<"idle" | "preview" | "success">("idle");
   const [importedCount, setImportedCount] = useState(0);
-  const [fileFormat, setFileFormat] = useState<FileFormatField[]>([
-    { column: "Title", required: true, example: "Q4 Sales Report" },
-    { column: "Description", required: false, example: "Quarterly analysis..." },
-    { column: "Category", required: true, example: "Analytics, Storage, Network" },
-    { column: "Status", required: true, example: "ACTIVE, INACTIVE, PENDING" },
-    { column: "Value", required: true, example: "12500, 45000" },
-  ]);
   const [isEditingFormat, setIsEditingFormat] = useState(false);
+  const [fileFormat, setFileFormat] = useState<FileFormatField[]>([
+    { column: "Serial Number (ተ.ቁ)", amharicColumn: "ተ.ቁ", required: true, type: "Integer", example: "1, 2, 3..." },
+    { column: "Sub-City (ክፍለ ከተማ)", amharicColumn: "ክፍለ ከተማ", required: true, type: "String", example: "ንፋስ ስልክ ላፍቶ" },
+    { column: "Woreda (ወረዳ)", amharicColumn: "ወረዳ", required: true, type: "String", example: "ወረዳ 5, ክፍለ ከተማ ተቋም" },
+    { column: "Number of Customers (የደንበኛ ብዛት)", amharicColumn: "የደንበኛ ብዛት", required: true, type: "Integer", example: "150, 200, 500" },
+    { column: "Communities Received (ምርት የተረከቡ ማህበረሰብ ብዛት)", amharicColumn: "ምርት የተረከቡ ማህበረሰብ ብዛት", required: true, type: "Integer", example: "10, 25, 50" },
+    { column: "Institution Customers (ተቅዋም ላይ ተረከቡ ደንበኞች)", amharicColumn: "ተቅዋም ላይ ተረከቡ ደንበኞች", required: false, type: "Integer", example: "5, 10, 20" },
+    { column: "Nursing Mothers (Quintals) (ለምግብ እናቶች)", amharicColumn: "ለምግብ እናቶች በ ኩንታል የተሰራጨ", required: false, type: "Decimal", example: "12.50, 25.00" },
+    { column: "Community (Quintals) (ማህበረሰብ)", amharicColumn: "ምርት የተሰራጨው ለማህበረሰብ በኩንታል", required: true, type: "Decimal", example: "100.00, 250.50" },
+    { column: "Institution (Quintals) (ተቅዋም)", amharicColumn: "ተቅዋም ላይ የተሰራጨው በኩንታል", required: false, type: "Decimal", example: "50.00, 75.25" },
+    { column: "Total (Quintals) (ጠቅላላ)", amharicColumn: "ጠቅላላ የተሰራጨው በ ኩንታል", required: true, type: "Decimal", example: "162.50, 350.75" },
+  ]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -120,18 +137,11 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
 
   const autoMapColumns = (headers: string[]) => {
     const mapping: Record<string, string> = {};
-    const fieldMappings: Record<string, string[]> = {
-      title: ["title", "name", "title", "item", "product", "record"],
-      description: ["description", "desc", "details", "notes", "info", "information"],
-      category: ["category", "type", "group", "tag", "label"],
-      status: ["status", "state", "condition"],
-      value: ["value", "amount", "price", "cost", "total", "number", "count"],
-    };
 
     headers.forEach(header => {
       const normalizedHeader = header.toLowerCase().trim();
-      for (const [field, variants] of Object.entries(fieldMappings)) {
-        if (variants.some(v => normalizedHeader.includes(v))) {
+      for (const [field, variants] of Object.entries(amharicFields)) {
+        if (variants.some(v => normalizedHeader.includes(v.toLowerCase()))) {
           mapping[field] = header;
           break;
         }
@@ -173,7 +183,15 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
     if (!parsedData) return [];
     
     const newErrors: ValidationError[] = [];
-    const requiredFields = ["title", "category", "status", "value"];
+    const requiredFields = [
+      "serialNumber", "subCity", "woreda", "numberOfCustomers",
+      "communitiesReceived", "communityQuintals", "totalQuintals"
+    ];
+    const numericFields = [
+      "serialNumber", "numberOfCustomers", "communitiesReceived",
+      "institutionCustomers", "nursingMothersQuintals", "communityQuintals",
+      "institutionQuintals", "totalQuintals"
+    ];
 
     parsedData.rows.forEach((row, index) => {
       requiredFields.forEach(field => {
@@ -187,8 +205,8 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
               newErrors.push({ row: index + 1, field, message: `${field} is required` });
             }
 
-            if (field === "value" && isNaN(Number(value))) {
-              newErrors.push({ row: index + 1, field, message: "Value must be a number" });
+            if (numericFields.includes(field) && value && isNaN(Number(value))) {
+              newErrors.push({ row: index + 1, field, message: `${field} must be a number` });
             }
           }
         }
@@ -211,28 +229,16 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
         value: 0,
       };
       
-      Object.entries(selectedColumns).forEach(([field, column]) => {
-        if (column) {
-          const colIndex = parsedData.headers.indexOf(column);
-          if (colIndex >= 0 && colIndex < row.length) {
-            const value = row[colIndex];
-            
-            if (field === "value") {
-              data.value = Number(value) || 0;
-            } else if (field === "title") {
-              data.title = value || `Record ${index + 1}`;
-            } else if (field === "description") {
-              data.description = value || null;
-            } else if (field === "category") {
-              data.category = value || "General";
-            } else if (field === "status") {
-              data.status = (value as any) || "ACTIVE";
-            }
-          }
-        }
-      });
+      const subCity = selectedColumns.subCity ? row[parsedData.headers.indexOf(selectedColumns.subCity)] || "" : "";
+      const woreda = selectedColumns.woreda ? row[parsedData.headers.indexOf(selectedColumns.woreda)] || "" : "";
+      const numberOfCustomers = selectedColumns.numberOfCustomers ? parseInt(row[parsedData.headers.indexOf(selectedColumns.numberOfCustomers)]) || 0 : 0;
+      const communitiesReceived = selectedColumns.communitiesReceived ? parseInt(row[parsedData.headers.indexOf(selectedColumns.communitiesReceived)]) || 0 : 0;
+      const totalQuintals = selectedColumns.totalQuintals ? parseFloat(row[parsedData.headers.indexOf(selectedColumns.totalQuintals)]) || 0 : 0;
 
-      if (!data.title) data.title = `Record ${index + 1}`;
+      data.title = `${subCity || "Unknown"} - ${woreda || "Unknown"}`;
+      data.description = `Customers: ${numberOfCustomers}, Communities: ${communitiesReceived}, Total: ${totalQuintals} Quintals`;
+      data.category = "Distribution";
+      data.value = totalQuintals;
 
       return data;
     });
@@ -250,18 +256,40 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
     setImportedCount(0);
   };
 
+  const clearAllData = () => {
+    if (data.length > 0) {
+      const allIds = data.map(d => d.id);
+      deleteMultiple(allIds);
+      localStorage.removeItem("dataEntries");
+      setShowClearConfirm(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between"
       >
-        <h1 className="text-3xl font-bold font-[family-name:var(--font-outfit)] text-text-primary">
-          Data Import
-        </h1>
-        <p className="text-text-secondary mt-1">
-          Import data from Excel (.xlsx, .xls) or CSV files.
-        </p>
+        <div>
+          <h1 className="text-3xl font-bold font-[family-name:var(--font-outfit)] text-text-primary">
+            Data Import
+          </h1>
+          <p className="text-text-secondary mt-1">
+            Import data from Excel (.xlsx, .xls) or CSV files.
+          </p>
+        </div>
+        {data.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => setShowClearConfirm(true)}
+            className="text-red-400 border-red-400/30 hover:bg-red-400/10"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Clear All Data ({data.length})
+          </Button>
+        )}
       </motion.div>
 
       <AnimatePresence mode="wait">
@@ -342,7 +370,7 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
             <Card className="mt-6">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-[family-name:var(--font-outfit)]">
-                  Expected File Format
+                  Expected File Format (Distribution Data)
                 </CardTitle>
                 <button
                   onClick={() => setIsEditingFormat(!isEditingFormat)}
@@ -356,7 +384,8 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-glass-border">
-                        <th className="text-left p-3 text-text-muted font-medium">Column</th>
+                        <th className="text-left p-3 text-text-muted font-medium">Column (English / አማርኛ)</th>
+                        <th className="text-left p-3 text-text-muted font-medium">Type</th>
                         <th className="text-left p-3 text-text-muted font-medium">Required</th>
                         <th className="text-left p-3 text-text-muted font-medium">Example</th>
                       </tr>
@@ -379,6 +408,9 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
                             ) : (
                               <span className="text-text-primary">{field.column}</span>
                             )}
+                          </td>
+                          <td className="p-3">
+                            <span className="text-text-muted">{field.type}</span>
                           </td>
                           <td className="p-3">
                             {isEditingFormat ? (
@@ -462,10 +494,21 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {["title", "description", "category", "status", "value"].map(field => (
+                  {[
+                    { field: "serialNumber", label: "Serial Number (ተ.ቁ)", required: true },
+                    { field: "subCity", label: "Sub-City (ክፍለ ከተማ)", required: true },
+                    { field: "woreda", label: "Woreda (ወረዳ)", required: true },
+                    { field: "numberOfCustomers", label: "Customers (የደንበኛ ብዛት)", required: true },
+                    { field: "communitiesReceived", label: "Communities (ማህበረሰብ)", required: true },
+                    { field: "institutionCustomers", label: "Institution Customers (ተቅዋም)", required: false },
+                    { field: "nursingMothersQuintals", label: "Nursing Mothers (እናቶች)", required: false },
+                    { field: "communityQuintals", label: "Community (ማህበረሰብ)", required: true },
+                    { field: "institutionQuintals", label: "Institution (ተቅዋም)", required: false },
+                    { field: "totalQuintals", label: "Total (ጠቅላላ)", required: true },
+                  ].map(({ field, label, required }) => (
                     <div key={field} className="space-y-2">
-                      <label className="text-sm text-text-secondary capitalize">
-                        {field} {field === "title" || field === "category" || field === "status" || field === "value" ? "*" : ""}
+                      <label className="text-sm text-text-secondary">
+                        {label} {required && "*"}
                       </label>
                       <select
                         value={selectedColumns[field] || ""}
@@ -590,6 +633,48 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
                 </div>
               </CardContent>
             </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showClearConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setShowClearConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-bg-secondary border border-glass-border rounded-xl p-6 max-w-md mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-text-primary mb-2">
+                Clear All Data?
+              </h3>
+              <p className="text-text-secondary mb-6">
+                This will permanently delete all {data.length} imported records. This action cannot be undone.
+              </p>
+              <div className="flex gap-4 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowClearConfirm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={clearAllData}
+                  className="bg-red-500 hover:bg-red-600"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete All
+                </Button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -22,6 +22,22 @@ export interface DataEntry {
   updatedAt: Date;
 }
 
+export interface DistributionEntry {
+  id: string;
+  serialNumber: number;
+  subCity: string;
+  woreda: string;
+  numberOfCustomers: number;
+  communitiesReceived: number;
+  institutionCustomers: number;
+  nursingMothersQuintals: number;
+  communityQuintals: number;
+  institutionQuintals: number;
+  totalQuintals: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface DataEntryFormData {
   title: string;
   description: string;
