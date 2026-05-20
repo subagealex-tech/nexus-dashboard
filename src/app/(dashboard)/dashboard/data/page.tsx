@@ -38,8 +38,8 @@ export default function DataManagementPage() {
     addData([newEntry]);
   };
 
-  const handleUpdate = (id: string, formData: DataEntryFormData) => {
-    updateData(id, formData);
+  const handleUpdate = (id: string, data: Partial<DataEntry>) => {
+    updateData(id, data);
   };
 
   const handleDelete = (id: string) => {

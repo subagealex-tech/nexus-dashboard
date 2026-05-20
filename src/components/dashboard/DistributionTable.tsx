@@ -235,7 +235,7 @@ export default function DistributionTable({ data, onDelete, onUpdate }: Distribu
       selectedItems.forEach(item => {
         const monthLabel = months[bulkMonth];
         onUpdate(item.id, {
-          title: item.title,
+          title: `${item.subCity} - ${item.woreda}`,
           description: `Serial: ${item.serialNumber}, Customers: ${item.numberOfCustomers}, Communities: ${item.communitiesReceived}, Institution Customers: ${item.institutionCustomers}, Nursing Mothers: ${item.nursingMothersQuintals}, Community: ${item.communityQuintals}, Institution: ${item.institutionQuintals}, Total: ${item.totalQuintals} Quintals, Month: ${bulkMonth}`,
           value: item.totalQuintals,
         });
