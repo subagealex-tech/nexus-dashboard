@@ -134,7 +134,6 @@ model CustomField {
 }
 
 model CustomFieldValue {
-  id        String   @id @default(cuid())
   value     String
   
   contactId String
