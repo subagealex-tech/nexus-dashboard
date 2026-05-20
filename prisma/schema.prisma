@@ -155,3 +155,21 @@ model DataEntry {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model DistributionEntry {
+  id                    String   @id @default(cuid())
+  serialNumber          Int
+  subCity               String
+  woreda                String
+  numberOfCustomers     Int
+  communitiesReceived   Int
+  institutionCustomers  Int      @default(0)
+  nursingMothersQuintals Float    @default(0)
+  communityQuintals      Float    @default(0)
+  institutionQuintals   Float    @default(0)
+  totalQuintals         Float
+  importedFrom          String?
+  fileName              String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}

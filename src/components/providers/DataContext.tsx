@@ -160,7 +160,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  return (
+return (
     <DataContext.Provider value={{ data, addData, updateData, deleteData, deleteMultiple, refreshData }}>
       {children}
     </DataContext.Provider>

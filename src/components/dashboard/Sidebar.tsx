@@ -35,11 +35,6 @@ const navItems = [
     icon: Database,
   },
   {
-    href: "/dashboard/import",
-    label: "Import Data",
-    icon: Upload,
-  },
-  {
     href: "/dashboard/report",
     label: "Report Generator",
     icon: FileText,

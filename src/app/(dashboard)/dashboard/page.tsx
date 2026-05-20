@@ -51,11 +51,21 @@ export default function DashboardPage() {
     
     const categoryCount = [...new Set(data.map(d => d.category))].length;
     
+    const distributionData = data.filter(d => d.category === "Distribution");
+    const totalQuintals = distributionData.reduce((sum, d) => sum + d.value, 0);
+    const totalCustomers = distributionData.reduce((sum, d) => {
+      const match = d.description?.match(/Customers: (\d+)/);
+      return sum + (match ? parseInt(match[1]) : 0);
+    }, 0);
+
     return {
       totalEntries,
       activePercentage: totalEntries > 0 ? Math.round((activeCount / totalEntries) * 100) : 0,
       avgValue: Math.round(avgValue),
       categoryCount,
+      totalQuintals,
+      totalCustomers,
+      distributionCount: distributionData.length,
     };
   }, [data]);
 

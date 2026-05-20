@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText,
@@ -13,6 +13,10 @@ import {
   ChevronDown,
   Printer,
   Loader2,
+  RefreshCw,
+  Database,
+  TrendingUp,
+  AlertCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,17 +39,6 @@ const months = [
   "ነሐሴ", "መስከረም", "ጥቅምት", "ሕዳር", "ታህሳስ", "ጥሪ"
 ];
 
-const subCities = [
-  "ንፋስ ስልክ ላፍቶ",
-  "አራት ኪሎ",
-  "ቦሌ",
-  "ጎጎ",
-  "ወራጅ",
-  "አባሶ",
-  "ልደታ",
-  "ጉለሌ"
-];
-
 export default function ReportPage() {
   const { data } = useData();
   const [selectedMonth, setSelectedMonth] = useState(0);
@@ -54,25 +47,85 @@ export default function ReportPage() {
   const [selectedWoreda, setSelectedWoreda] = useState("");
   const [reportGenerated, setReportGenerated] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setLastRefresh(new Date());
+  }, []);
+  const [dataStats, setDataStats] = useState<{
+    totalRecords: number;
+    subCityCount: number;
+    woredaCount: number;
+    totalQuintals: number;
+    totalCustomers: number;
+  }>({ totalRecords: 0, subCityCount: 0, woredaCount: 0, totalQuintals: 0, totalCustomers: 0 });
+
+  const refreshData = () => {
+    setLastRefresh(new Date());
+    const stored = localStorage.getItem("nexus-data");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        console.log("Data refreshed:", parsed.length, "records");
+      } catch (e) {
+        console.error("Failed to refresh:", e);
+      }
+    }
+  };
 
   const distributionData = useMemo(() => {
-    return data
+    const parsed = data
       .filter(d => d.category === "Distribution")
       .map(d => {
         const parts = d.title?.split(" - ") || [];
+        const desc = d.description || "";
+        
+        const customersMatch = desc.match(/Customers:\s*(\d+)/);
+        const communitiesMatch = desc.match(/Communities:\s*(\d+)/);
+        const totalMatch = desc.match(/Total:\s*([\d.]+)/);
+        
+        const subCityValue = parts[0]?.trim();
+        const woredaValue = parts[1]?.trim();
+        
         return {
-          subCity: parts[0] || "Unknown",
-          woreda: parts[1] || "Unknown",
-          numberOfCustomers: parseInt(d.description?.match(/Customers: (\d+)/)?.[1] || "0"),
-          communitiesReceived: parseInt(d.description?.match(/Communities: (\d+)/)?.[1] || "0"),
+          subCity: subCityValue || "N/A",
+          woreda: woredaValue || "N/A",
+          numberOfCustomers: customersMatch ? parseInt(customersMatch[1]) : 0,
+          communitiesReceived: communitiesMatch ? parseInt(communitiesMatch[1]) : 0,
           institutionCustomers: 0,
           nursingMothersQuintals: 0,
           communityQuintals: 0,
           institutionQuintals: 0,
-          totalQuintals: d.value || 0,
+          totalQuintals: totalMatch ? parseFloat(totalMatch[1]) : (d.value || 0),
         } as DistributionData;
       });
+    
+    const stats = {
+      totalRecords: parsed.length,
+      subCityCount: new Set(parsed.map(d => d.subCity)).size,
+      woredaCount: new Set(parsed.map(d => d.woreda)).size,
+      totalQuintals: parsed.reduce((sum, d) => sum + d.totalQuintals, 0),
+      totalCustomers: parsed.reduce((sum, d) => sum + d.numberOfCustomers, 0),
+    };
+    setDataStats(stats);
+    
+    return parsed;
   }, [data]);
+
+  const availableSubCities = useMemo(() => {
+    const cities = new Set(distributionData.map(d => d.subCity));
+    return Array.from(cities).sort();
+  }, [distributionData]);
+
+  const availableWoredas = useMemo(() => {
+    if (!selectedSubCity) return [];
+    const woredas = new Set(
+      distributionData
+        .filter(d => d.subCity === selectedSubCity)
+        .map(d => d.woreda)
+    );
+    return Array.from(woredas).sort();
+  }, [distributionData, selectedSubCity]);
 
   const subCityData = useMemo(() => {
     if (!selectedSubCity) return null;
@@ -146,15 +199,15 @@ ___________________
 • ለፋይል
 `;
 
-    const tableRows = woredaData.map((d, i) => `
-    <tr>
-      <td style="padding: 8px; border: 1px solid #ddd;">ወረዳ - ${selectedWoreda} - ${d.woreda.includes("ማህበረሰብ") ? "ለማህበረሰብ" : "ለተቋም"}</td>
-      <td style="padding: 8px; border: 1px solid #ddd;">ዙር - ${i + 1}</td>
-      <td style="padding: 8px; border: 1px solid #ddd;">${d.numberOfCustomers}</td>
-      <td style="padding: 8px; border: 1px solid #ddd;">${d.communitiesReceived}</td>
-      <td style="padding: 8px; border: 1px solid #ddd;">${d.totalQuintals}</td>
-    </tr>
-    `).join("");
+    const tableRows = woredaData.map((d, i) => (
+      <tr key={i}>
+        <td style={{ padding: "8px", border: "1px solid #ddd" }}>ወረዳ - {selectedWoreda}</td>
+        <td style={{ padding: "8px", border: "1px solid #ddd" }}>ዙር - {i + 1}</td>
+        <td style={{ padding: "8px", border: "1px solid #ddd" }}>{d.numberOfCustomers}</td>
+        <td style={{ padding: "8px", border: "1px solid #ddd" }}>{d.communitiesReceived}</td>
+        <td style={{ padding: "8px", border: "1px solid #ddd" }}>{d.totalQuintals}</td>
+      </tr>
+    ));
 
     return { letter, tableRows, total };
   };
@@ -169,12 +222,6 @@ ___________________
   const handlePrint = () => {
     window.print();
   };
-
-  const availableWoredas = useMemo(() => {
-    if (!selectedSubCity) return [];
-    const woredas = new Set(distributionData.filter(d => d.subCity === selectedSubCity).map(d => d.woreda));
-    return Array.from(woredas);
-  }, [distributionData, selectedSubCity]);
 
   return (
     <div className="space-y-8">
@@ -254,9 +301,12 @@ ___________________
                     value={selectedSubCity}
                     onChange={(e) => { setSelectedSubCity(e.target.value); setSelectedWoreda(""); }}
                     className="w-full h-11 rounded-lg border border-glass-border bg-bg-secondary px-4 text-sm text-text-primary appearance-none pr-10"
+                    disabled={availableSubCities.length === 0}
                   >
-                    <option value="">Select Sub-City</option>
-                    {subCities.map(subCity => (
+                    <option value="">
+                      {availableSubCities.length > 0 ? "Select Sub-City" : "No data available"}
+                    </option>
+                    {availableSubCities.map(subCity => (
                       <option key={subCity} value={subCity}>{subCity}</option>
                     ))}
                   </select>
@@ -275,9 +325,11 @@ ___________________
                       value={selectedWoreda}
                       onChange={(e) => setSelectedWoreda(e.target.value)}
                       className="w-full h-11 rounded-lg border border-glass-border bg-bg-secondary px-4 text-sm text-text-primary appearance-none pr-10"
-                      disabled={!selectedSubCity}
+                      disabled={!selectedSubCity || availableWoredas.length === 0}
                     >
-                      <option value="">Select Woreda</option>
+                      <option value="">
+                        {availableWoredas.length > 0 ? "Select Woreda" : "No woredas available"}
+                      </option>
                       {availableWoredas.map(woreda => (
                         <option key={woreda} value={woreda}>{woreda}</option>
                       ))}
@@ -290,7 +342,7 @@ ___________________
 
             <Button 
               onClick={handleGenerate} 
-              disabled={loading || (reportType === "woreda" && !selectedWoreda) || !selectedSubCity}
+              disabled={loading || (reportType === "woreda" && !selectedWoreda) || !selectedSubCity || distributionData.length === 0}
               className="gap-2"
             >
               {loading ? (
@@ -309,37 +361,116 @@ ___________________
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="font-[family-name:var(--font-outfit)]">Summary</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="font-[family-name:var(--font-outfit)]">Data Summary</CardTitle>
+            <Button variant="ghost" size="sm" onClick={refreshData} className="gap-1">
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-4 rounded-lg bg-glass-bg">
-              <p className="text-sm text-text-muted">Report Type</p>
-              <p className="text-xl font-bold text-text-primary">
-                {reportType === "subcity" ? "Sub-City" : "Woreda"}
-              </p>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-accent-cyan/10 border border-accent-cyan/30">
+              <Database className="w-5 h-5 text-accent-cyan" />
+              <div>
+                <p className="text-sm text-text-muted">Data Source</p>
+                <p className="text-sm font-medium text-accent-cyan">Import Page Connected</p>
+              </div>
             </div>
-            <div className="p-4 rounded-lg bg-glass-bg">
-              <p className="text-sm text-text-muted">Data Records</p>
-              <p className="text-2xl font-bold text-accent-cyan">
-                {reportType === "subcity" 
-                  ? (selectedSubCity ? subCityData?.length || 0 : 0)
-                  : (selectedWoreda ? woredaData?.length || 0 : 0)
-                }
-              </p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-lg bg-glass-bg">
+                <p className="text-xs text-text-muted">Total Records</p>
+                <p className="text-xl font-bold text-accent-cyan">{dataStats.totalRecords}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-glass-bg">
+                <p className="text-xs text-text-muted">Sub-Cities</p>
+                <p className="text-xl font-bold text-text-primary">{dataStats.subCityCount}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-glass-bg">
+                <p className="text-xs text-text-muted">Woredas</p>
+                <p className="text-xl font-bold text-text-primary">{dataStats.woredaCount}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-glass-bg">
+                <p className="text-xs text-text-muted">Total Quintals</p>
+                <p className="text-xl font-bold text-accent-purple">{dataStats.totalQuintals.toLocaleString()}</p>
+              </div>
             </div>
-            <div className="p-4 rounded-lg bg-glass-bg">
-              <p className="text-sm text-text-muted">Total (Quintals)</p>
-              <p className="text-2xl font-bold text-accent-purple">
-                {reportType === "subcity"
-                  ? (subCityData?.reduce((sum, d) => sum + d.totalQuintals, 0) || 0).toLocaleString()
-                  : (woredaData?.reduce((sum, d) => sum + d.totalQuintals, 0) || 0).toLocaleString()
-                }
-              </p>
+            
+            <div className="p-3 rounded-lg bg-glass-bg">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-text-muted" />
+                <p className="text-xs text-text-muted">Total Customers</p>
+              </div>
+              <p className="text-lg font-bold text-text-primary">{dataStats.totalCustomers.toLocaleString()}</p>
             </div>
+
+            <div className="flex items-center justify-between text-xs text-text-muted pt-2 border-t border-glass-border">
+              <span>Last updated: {lastRefresh ? lastRefresh.toLocaleTimeString() : "Loading..."}</span>
+            </div>
+
+            {distributionData.length === 0 && (
+              <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-yellow-400 font-medium">No Data Available</p>
+                    <p className="text-xs text-yellow-400/70 mt-1">
+                      Import distribution data from the Import page to generate reports.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {distributionData.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-[family-name:var(--font-outfit)] flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                Imported Data Preview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-glass-border">
+                      <th className="text-left p-3 text-text-muted font-medium">Sub-City</th>
+                      <th className="text-left p-3 text-text-muted font-medium">Woreda</th>
+                      <th className="text-right p-3 text-text-muted font-medium">Customers</th>
+                      <th className="text-right p-3 text-text-muted font-medium">Communities</th>
+                      <th className="text-right p-3 text-text-muted font-medium">Total (Quintals)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {distributionData.slice(0, 10).map((item, index) => (
+                      <tr key={index} className="border-b border-glass-border hover:bg-glass-bg">
+                        <td className="p-3 text-text-primary">{item.subCity}</td>
+                        <td className="p-3 text-text-secondary">{item.woreda}</td>
+                        <td className="p-3 text-right text-text-primary">{item.numberOfCustomers}</td>
+                        <td className="p-3 text-right text-text-primary">{item.communitiesReceived}</td>
+                        <td className="p-3 text-right text-accent-cyan font-medium">{item.totalQuintals}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {distributionData.length > 10 && (
+                  <p className="text-sm text-text-muted text-center py-3">
+                    Showing 10 of {distributionData.length} records
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       <AnimatePresence>
         {reportGenerated && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Table,
   Trash2,
+  Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,14 @@ interface ParsedData {
   rows: string[][];
   fileName: string;
   fileType: "csv" | "xlsx";
+}
+
+interface SavedFile {
+  name: string;
+  type: "csv" | "xlsx";
+  data: string;
+  importedAt: string;
+  recordCount: number;
 }
 
 interface ValidationError {
@@ -60,6 +69,50 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
   const { data, deleteMultiple } = useData();
   const [dragActive, setDragActive] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [savedFiles, setSavedFiles] = useState<SavedFile[]>([]);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("importedFiles");
+    if (stored) {
+      try {
+        setSavedFiles(JSON.parse(stored));
+      } catch (e) {
+        console.error("Failed to load saved files:", e);
+      }
+    }
+  }, []);
+
+  const saveFile = (file: File, recordCount: number) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(",")[1];
+      const newFile: SavedFile = {
+        name: file.name,
+        type: file.name.endsWith(".csv") ? "csv" : "xlsx",
+        data: base64,
+        importedAt: new Date().toISOString(),
+        recordCount,
+      };
+      const updated = [newFile, ...savedFiles].slice(0, 10);
+      setSavedFiles(updated);
+      localStorage.setItem("importedFiles", JSON.stringify(updated));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const downloadFile = (savedFile: SavedFile) => {
+    const link = document.createElement("a");
+    link.href = `data:application/${savedFile.type === "csv" ? "csv" : "vnd.openxmlformats-officedocument.spreadsheetml.sheet"};base64,${savedFile.data}`;
+    link.download = savedFile.name;
+    link.click();
+  };
+
+  const deleteSavedFile = (index: number) => {
+    const updated = savedFiles.filter((_, i) => i !== index);
+    setSavedFiles(updated);
+    localStorage.setItem("importedFiles", JSON.stringify(updated));
+  };
   const [parsedData, setParsedData] = useState<ParsedData | null>(null);
   const [selectedColumns, setSelectedColumns] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<ValidationError[]>([]);
@@ -90,6 +143,7 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
   }, []);
 
   const parseFile = (file: File) => {
+    setCurrentFile(file);
     const fileType = file.name.endsWith(".csv") ? "csv" : "xlsx";
     const fileName = file.name;
 
@@ -229,14 +283,19 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
         value: 0,
       };
       
+      const serialNumber = selectedColumns.serialNumber ? parseInt(row[parsedData.headers.indexOf(selectedColumns.serialNumber)]) || index + 1 : index + 1;
       const subCity = selectedColumns.subCity ? row[parsedData.headers.indexOf(selectedColumns.subCity)] || "" : "";
       const woreda = selectedColumns.woreda ? row[parsedData.headers.indexOf(selectedColumns.woreda)] || "" : "";
       const numberOfCustomers = selectedColumns.numberOfCustomers ? parseInt(row[parsedData.headers.indexOf(selectedColumns.numberOfCustomers)]) || 0 : 0;
       const communitiesReceived = selectedColumns.communitiesReceived ? parseInt(row[parsedData.headers.indexOf(selectedColumns.communitiesReceived)]) || 0 : 0;
+      const institutionCustomers = selectedColumns.institutionCustomers ? parseInt(row[parsedData.headers.indexOf(selectedColumns.institutionCustomers)]) || 0 : 0;
+      const nursingMothersQuintals = selectedColumns.nursingMothersQuintals ? parseFloat(row[parsedData.headers.indexOf(selectedColumns.nursingMothersQuintals)]) || 0 : 0;
+      const communityQuintals = selectedColumns.communityQuintals ? parseFloat(row[parsedData.headers.indexOf(selectedColumns.communityQuintals)]) || 0 : 0;
+      const institutionQuintals = selectedColumns.institutionQuintals ? parseFloat(row[parsedData.headers.indexOf(selectedColumns.institutionQuintals)]) || 0 : 0;
       const totalQuintals = selectedColumns.totalQuintals ? parseFloat(row[parsedData.headers.indexOf(selectedColumns.totalQuintals)]) || 0 : 0;
 
       data.title = `${subCity || "Unknown"} - ${woreda || "Unknown"}`;
-      data.description = `Customers: ${numberOfCustomers}, Communities: ${communitiesReceived}, Total: ${totalQuintals} Quintals`;
+      data.description = `Serial: ${serialNumber}, Customers: ${numberOfCustomers}, Communities: ${communitiesReceived}, Institution Customers: ${institutionCustomers}, Nursing Mothers: ${nursingMothersQuintals}, Community: ${communityQuintals}, Institution: ${institutionQuintals}, Total: ${totalQuintals} Quintals, Month: ${new Date().getMonth()}`;
       data.category = "Distribution";
       data.value = totalQuintals;
 
@@ -246,6 +305,11 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
     setImportedCount(importedData.length);
     setImportStatus("success");
     onImport?.(importedData, parsedData?.fileName, parsedData?.fileType);
+    
+    if (currentFile) {
+      saveFile(currentFile, importedData.length);
+      setCurrentFile(null);
+    }
   };
 
   const resetImport = () => {
@@ -254,12 +318,14 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
     setErrors([]);
     setImportStatus("idle");
     setImportedCount(0);
+    setCurrentFile(null);
   };
 
-  const clearAllData = () => {
+  const clearAllData = async () => {
     if (data.length > 0) {
       const allIds = data.map(d => d.id);
       deleteMultiple(allIds);
+      localStorage.removeItem("nexus-data");
       localStorage.removeItem("dataEntries");
       setShowClearConfirm(false);
     }
@@ -453,6 +519,58 @@ export default function DataImport({ onImport }: { onImport?: (data: Partial<Dat
                 </div>
               </CardContent>
             </Card>
+
+            {savedFiles.length > 0 && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="text-lg font-[family-name:var(--font-outfit)]">
+                    Imported Files History
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {savedFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-4 rounded-lg bg-glass-bg border border-glass-border"
+                      >
+                        <div className="flex items-center gap-3">
+                          {file.type === "csv" ? (
+                            <FileText className="w-5 h-5 text-accent-cyan" />
+                          ) : (
+                            <FileSpreadsheet className="w-5 h-5 text-accent-purple" />
+                          )}
+                          <div>
+                            <p className="text-sm font-medium text-text-primary">{file.name}</p>
+                            <p className="text-xs text-text-muted">
+                              {file.recordCount} records • {new Date(file.importedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => downloadFile(file)}
+                            className="text-accent-cyan hover:text-accent-cyan/80"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteSavedFile(index)}
+                            className="text-red-400 hover:text-red-400/80"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </motion.div>
         )}
 
