@@ -16,7 +16,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 const defaultLineChartData = [
   { name: "Jan", value: 400, value2: 300, value3: 500 },
@@ -43,16 +43,16 @@ const defaultPieChartData = [
   { name: "Storage", value: 25, color: "#9b5de5" },
   { name: "Network", value: 20, color: "#f15bb5" },
   { name: "Security", value: 15, color: "#fee440" },
-  { name: "Other", value: 5, color: "#6b6b7b" },
+  { name: "Other", value: 5, color: "#5c5c6e" },
 ];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="glass-card p-3 rounded-lg border border-glass-border">
-        <p className="text-text-primary text-sm font-medium mb-2">{label}</p>
+      <div className="bg-bg-secondary/95 backdrop-blur-md border border-glass-border rounded-lg px-3 py-2 shadow-lg">
+        <p className="text-text-primary text-xs font-medium mb-1.5">{label}</p>
         {payload.map((entry: any, index: number) => (
-          <p key={index} className="text-sm" style={{ color: entry.color }}>
+          <p key={index} className="text-xs leading-relaxed" style={{ color: entry.color }}>
             {entry.name}: {entry.value.toLocaleString()}
           </p>
         ))}
@@ -68,141 +68,118 @@ interface ChartProps {
 
 export function MultiLineChart({ data = defaultLineChartData }: ChartProps) {
   return (
-    <Card hover>
-      <CardHeader>
-        <CardTitle className="font-[family-name:var(--font-outfit)]">
-          Data Trends
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a25" />
-            <XAxis
-              dataKey="name"
-              stroke="#6b6b7b"
-              fontSize={12}
-              tickLine={false}
-            />
-            <YAxis
-              stroke="#6b6b7b"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke="#00f5d4"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 6, fill: "#00f5d4" }}
-            />
-            <Line
-              type="monotone"
-              dataKey="value2"
-              stroke="#9b5de5"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 6, fill: "#9b5de5" }}
-            />
-            <Line
-              type="monotone"
-              dataKey="value3"
-              stroke="#f15bb5"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 6, fill: "#f15bb5" }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ResponsiveContainer width="100%" height={280}>
+      <LineChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#141420" vertical={false} />
+        <XAxis
+          dataKey="name"
+          stroke="#5c5c6e"
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis
+          stroke="#5c5c6e"
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        <Line
+          type="monotone"
+          dataKey="value"
+          stroke="#00f5d4"
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 4, fill: "#00f5d4", strokeWidth: 0 }}
+        />
+        <Line
+          type="monotone"
+          dataKey="value2"
+          stroke="#9b5de5"
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 4, fill: "#9b5de5", strokeWidth: 0 }}
+        />
+        <Line
+          type="monotone"
+          dataKey="value3"
+          stroke="#f15bb5"
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 4, fill: "#f15bb5", strokeWidth: 0 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
   );
 }
 
 export function AreaChartComponent({ data = defaultAreaChartData }: ChartProps) {
   return (
-    <Card hover>
-      <CardHeader>
-        <CardTitle className="font-[family-name:var(--font-outfit)]">
-          Cumulative Growth
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#9b5de5" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#9b5de5" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a25" />
-            <XAxis
-              dataKey="name"
-              stroke="#6b6b7b"
-              fontSize={12}
-              tickLine={false}
-            />
-            <YAxis
-              stroke="#6b6b7b"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="#9b5de5"
-              strokeWidth={2}
-              fillOpacity={1}
-              fill="url(#colorValue)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ResponsiveContainer width="100%" height={280}>
+      <AreaChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+        <defs>
+          <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#9b5de5" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="#9b5de5" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="#141420" vertical={false} />
+        <XAxis
+          dataKey="name"
+          stroke="#5c5c6e"
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis
+          stroke="#5c5c6e"
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        <Area
+          type="monotone"
+          dataKey="value"
+          stroke="#9b5de5"
+          strokeWidth={2}
+          fillOpacity={1}
+          fill="url(#colorValue)"
+        />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
 
 export function DoughnutChart({ data = defaultPieChartData }: ChartProps) {
   return (
-    <Card hover>
-      <CardHeader>
-        <CardTitle className="font-[family-name:var(--font-outfit)]">
-          Category Distribution
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={100}
-              paddingAngle={4}
-              dataKey="value"
-            >
-              {data.map((entry: any, index: number) => (
-                <Cell key={`cell-${index}`} fill={entry.color || defaultPieChartData[index]?.color} />
-              ))}
-            </Pie>
-            <Tooltip content={<CustomTooltip />} />
-            <Legend
-              formatter={(value) => (
-                <span className="text-text-secondary text-sm">{value}</span>
-              )}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ResponsiveContainer width="100%" height={280}>
+      <PieChart>
+        <Pie
+          data={data}
+          cx="50%"
+          cy="50%"
+          innerRadius={60}
+          outerRadius={95}
+          paddingAngle={3}
+          dataKey="value"
+          strokeWidth={0}
+        >
+          {data.map((entry: any, index: number) => (
+            <Cell key={`cell-${index}`} fill={entry.color || defaultPieChartData[index]?.color} />
+          ))}
+        </Pie>
+        <Tooltip content={<CustomTooltip />} />
+        <Legend
+          formatter={(value) => (
+            <span className="text-text-secondary text-xs">{value}</span>
+          )}
+          iconSize={8}
+          iconType="circle"
+        />
+      </PieChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -221,57 +198,64 @@ export function KPICard({
   sparklineData?: number[];
   color: string;
 }) {
-  const sparklinePoints = sparklineData
+  const maxSpark = sparklineData ? Math.max(...sparklineData) : 100;
+  const minSpark = sparklineData ? Math.min(...sparklineData) : 0;
+  const range = maxSpark - minSpark || 1;
+  const points = sparklineData
     ? sparklineData
-        .map((v, i) => `${i === 0 ? "M" : "L"} ${i * 20} ${100 - v}`)
+        .map((v, i) => {
+          const x = (i / (sparklineData.length - 1)) * 100;
+          const y = 100 - ((v - minSpark) / range) * 80 - 10;
+          return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+        })
         .join(" ")
     : "";
 
   return (
     <motion.div
-      whileHover={{ scale: 1.02 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      whileHover={{ scale: 1.01, y: -2 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      className="h-full"
     >
-      <Card hover className="relative overflow-hidden">
+      <Card className="relative overflow-hidden h-full group">
         <div
-          className="absolute top-0 right-0 w-32 h-32 opacity-10"
-          style={{ background: color, filter: "blur(40px)" }}
+          className="absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-[0.07] group-hover:opacity-[0.12] transition-opacity duration-500"
+          style={{ background: color, filter: "blur(30px)" }}
         />
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between">
+        <CardContent className="p-5">
+          <div className="flex items-start justify-between mb-3">
             <div>
-              <p className="text-text-muted text-sm">{title}</p>
-              <p className="text-2xl font-bold text-text-primary mt-1 font-[family-name:var(--font-jetbrains)]">
+              <p className="text-xs text-text-muted font-medium tracking-wide uppercase">
+                {title}
+              </p>
+              <p className="text-xl font-semibold text-text-primary mt-1 font-[family-name:var(--font-jetbrains)] tracking-tight">
                 {typeof value === "number" ? value.toLocaleString() : value}
               </p>
-              {change !== undefined && (
-                <p
-                  className={`text-sm mt-1 ${
-                    change >= 0 ? "text-accent-cyan" : "text-red-400"
-                  }`}
-                >
-                  {change >= 0 ? "+" : ""}
-                  {change}% from last month
-                </p>
-              )}
             </div>
             <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center"
-              style={{ background: `${color}20` }}
+              className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: `${color}15` }}
             >
-              <Icon className="w-6 h-6" style={{ color }} />
+              <Icon className="w-[18px] h-[18px]" style={{ color }} />
             </div>
           </div>
+          {change !== undefined && (
+            <p className={`text-xs inline-flex items-center gap-1 ${change >= 0 ? "text-accent-cyan" : "text-red-400"}`}>
+              <span>{change >= 0 ? "↑" : "↓"}</span>
+              {Math.abs(change)}% from last month
+            </p>
+          )}
           {sparklineData && sparklineData.length > 0 && (
-            <div className="mt-4 h-12">
-              <svg width="100%" height="100%" viewBox="0 0 140 100">
+            <div className="mt-3 h-8">
+              <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
                 <path
-                  d={sparklinePoints}
+                  d={points}
                   fill="none"
                   stroke={color}
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  className="opacity-60"
                 />
               </svg>
             </div>
