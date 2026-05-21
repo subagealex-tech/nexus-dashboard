@@ -19,12 +19,14 @@ import {
   UserCog,
   Search,
   Bell,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/dashboard/data", label: "Data", icon: Database },
   { href: "/dashboard/report", label: "Reports", icon: FileText },
   { href: "/dashboard/notes", label: "Notes", icon: StickyNote },

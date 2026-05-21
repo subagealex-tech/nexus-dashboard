@@ -14,12 +14,11 @@ import {
   FileText,
   Activity,
   Users,
-  UserCog,
-  Settings,
   FolderTree,
   BarChart3,
   ListTodo,
-  Calendar,
+  Filter,
+  X,
 } from "lucide-react";
 import {
   KPICard,
@@ -55,6 +54,8 @@ export default function DashboardPage() {
   const { data } = useData();
   const { notes, todos } = useNotes();
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
 
   useEffect(() => {
     const stored = localStorage.getItem("contacts");
@@ -63,24 +64,37 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const allCategories = useMemo(() => [...new Set(data.map(d => d.category))], [data]);
+  const allStatuses = useMemo(() => [...new Set(data.map(d => d.status))] as string[], [data]);
+
+  const filteredData = useMemo(() => {
+    return data.filter(d => {
+      if (filterCategory !== "all" && d.category !== filterCategory) return false;
+      if (filterStatus !== "all" && d.status !== filterStatus) return false;
+      return true;
+    });
+  }, [data, filterCategory, filterStatus]);
+
+  const hasActiveFilters = filterCategory !== "all" || filterStatus !== "all";
+
   const kpiData = useMemo(() => {
-    const totalEntries = data.length;
-    const activeCount = data.filter(d => d.status === "ACTIVE").length;
-    const avgValue = data.length > 0 ? Math.round(data.reduce((sum, d) => sum + d.value, 0) / data.length) : 0;
-    const categoryCount = [...new Set(data.map(d => d.category))].length;
+    const totalEntries = filteredData.length;
+    const activeCount = filteredData.filter(d => d.status === "ACTIVE").length;
+    const avgValue = filteredData.length > 0 ? Math.round(filteredData.reduce((sum, d) => sum + d.value, 0) / filteredData.length) : 0;
+    const categoryCount = [...new Set(filteredData.map(d => d.category))].length;
     return { totalEntries, activePercentage: totalEntries > 0 ? Math.round((activeCount / totalEntries) * 100) : 0, avgValue, categoryCount };
-  }, [data]);
+  }, [filteredData]);
 
   const chartData = useMemo(() => {
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"];
     const lineChartData = months.map((name, i) => ({ name, value: 300 + i * 50 + 100, value2: 300 + i * 50, value3: 300 + i * 50 + 300 }));
     const areaChartData = months.map((name, i) => ({ name, value: (i + 1) * 800 }));
-    const categoryData = data.reduce((acc, item) => { acc[item.category] = (acc[item.category] || 0) + 1; return acc; }, {} as Record<string, number>);
+    const categoryData = filteredData.reduce((acc, item) => { acc[item.category] = (acc[item.category] || 0) + 1; return acc; }, {} as Record<string, number>);
     const colors = ["#00f5d4", "#9b5de5", "#f15bb5", "#fee440", "#6b6b7b"];
     const categories = Object.keys(categoryData);
     const pieData = categories.slice(0, 5).map((cat, i) => ({ name: cat, value: categoryData[cat], color: colors[i % colors.length] }));
     return { lineChartData, areaChartData, pieData };
-  }, [data]);
+  }, [filteredData]);
 
   const sparklineData = useMemo(() => [45, 52, 38, 65, 58, 72, 68], []);
   const activeTodos = todos.filter(t => !t.completed).length;
@@ -117,6 +131,55 @@ export default function DashboardPage() {
           All systems normal
         </span>
       </motion.div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 text-xs text-text-muted">
+          <Filter className="w-3.5 h-3.5" />
+          <span>Filter</span>
+        </div>
+        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
+          className="px-3 py-1.5 rounded-lg bg-bg-secondary border border-glass-border text-xs text-text-primary focus:outline-none focus:border-accent-cyan/50 appearance-none cursor-pointer"
+        >
+          <option value="all">All Categories</option>
+          {allCategories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+        </select>
+        <div className="flex items-center gap-1">
+          {allStatuses.map((s) => (
+            <button key={s} onClick={() => setFilterStatus(filterStatus === s ? "all" : s)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                filterStatus === s
+                  ? "bg-accent-cyan/10 text-accent-cyan border-accent-cyan/30"
+                  : "text-text-muted hover:text-text-primary border-transparent hover:border-glass-border"
+              )}
+            >
+              {s.charAt(0) + s.slice(1).toLowerCase()}
+            </button>
+          ))}
+          <button onClick={() => setFilterStatus("all")}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+              filterStatus === "all" && filterCategory === "all"
+                ? "bg-accent-cyan/10 text-accent-cyan border-accent-cyan/30"
+                : "text-text-muted hover:text-text-primary border-transparent hover:border-glass-border"
+            )}
+          >
+            All Status
+          </button>
+        </div>
+        {hasActiveFilters && (
+          <button onClick={() => { setFilterCategory("all"); setFilterStatus("all"); }}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs text-red-400 hover:bg-red-500/10 transition-all"
+          >
+            <X className="w-3 h-3" /> Clear
+          </button>
+        )}
+        {hasActiveFilters && (
+          <span className="text-[10px] text-text-muted">
+            {filteredData.length} of {data.length} entries
+          </span>
+        )}
+      </div>
 
       <motion.div variants={container} initial="hidden" animate="show"
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
