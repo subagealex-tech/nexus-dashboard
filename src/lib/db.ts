@@ -1,11 +1,16 @@
-export const prisma = {
-  dataEntry: {
-    findMany: async () => [],
-    findUnique: async () => null,
-    create: async () => ({}),
-    update: async () => ({}),
-    delete: async () => ({}),
-  },
+import prisma from "./prisma";
+
+export const db = {
+  dataEntry: prisma.dataEntry,
+  distributionEntry: prisma.distributionEntry,
+  user: prisma.user,
+  company: prisma.company,
+  contact: prisma.contact,
+  tag: prisma.tag,
+  interaction: prisma.interaction,
+  note: prisma.note,
+  customField: prisma.customField,
+  customFieldValue: prisma.customFieldValue,
 };
 
-export default prisma;
+export default db;

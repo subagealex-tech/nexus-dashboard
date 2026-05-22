@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Wifi, WifiOff, RefreshCw, Upload, FileSpreadsheet, FileText, Database, TrendingUp } from "lucide-react";
 import DataTable from "@/components/dashboard/DataTable";
@@ -21,7 +21,31 @@ export default function DataManagementPage() {
   
   useEffect(() => {
     setLastSyncTime(new Date().toLocaleTimeString());
+    loadFromDatabase();
   }, []);
+
+  const loadFromDatabase = async () => {
+    try {
+      const res = await fetch("/api/data/import");
+      if (!res.ok) return;
+      const dbEntries: any[] = await res.json();
+      if (dbEntries.length === 0) return;
+
+      const converted: DataEntry[] = dbEntries.map((e) => ({
+        id: e.id,
+        title: `${e.subCity || "Unknown"} - ${e.woreda || "Unknown"}`,
+        description: `Serial: ${e.serialNumber}, Customers: ${e.numberOfCustomers}, Communities: ${e.communitiesReceived}, Institution Customers: ${e.institutionCustomers}, Nursing Mothers: ${e.nursingMothersQuintals}, Community: ${e.communityQuintals}, Institution: ${e.institutionQuintals}, Total: ${e.totalQuintals} Quintals, Month: ${new Date(e.createdAt).getMonth()}`,
+        category: "Distribution",
+        status: "ACTIVE" as const,
+        value: e.totalQuintals,
+        createdAt: new Date(e.createdAt),
+        updatedAt: new Date(e.updatedAt),
+      }));
+      addData(converted);
+    } catch (err) {
+      console.error("Failed to load from database:", err);
+    }
+  };
   
   const [dbStatus] = useState<DatabaseStatus>({
     status: "connected",
@@ -52,28 +76,13 @@ export default function DataManagementPage() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    const stored = localStorage.getItem("nexus-data");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        const refreshedData = parsed.map((item: any) => ({
-          ...item,
-          createdAt: new Date(item.createdAt),
-          updatedAt: new Date(item.updatedAt),
-        }));
-        refreshData();
-        setLastSyncTime(new Date().toLocaleTimeString());
-      } catch (e) {
-        console.error("Failed to refresh data:", e);
-      }
-    } else {
-      refreshData();
-      setLastSyncTime(new Date().toLocaleTimeString());
-    }
+    await loadFromDatabase();
+    refreshData();
+    setLastSyncTime(new Date().toLocaleTimeString());
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
-  const handleImport = (importedData: Partial<DataEntry>[], fileName?: string, fileType?: "csv" | "xlsx") => {
+  const handleImport = async (importedData: Partial<DataEntry>[], fileName?: string, fileType?: "csv" | "xlsx") => {
     const newEntries: DataEntry[] = importedData.map((item, index) => ({
       id: Date.now().toString() + index,
       title: item.title || "Untitled",
@@ -85,6 +94,40 @@ export default function DataManagementPage() {
       updatedAt: new Date(),
     }));
     addData(newEntries);
+
+    try {
+      const parsed = importedData.map((item, index) => {
+        const desc = item.description || "";
+        const getField = (label: string) => {
+          const m = desc.match(new RegExp(`${label}:\\s*([\\d.]+)`));
+          return m ? parseFloat(m[1]) : 0;
+        };
+        return {
+          serialNumber: index + 1,
+          subCity: item.title?.split(" - ")[0] || "",
+          woreda: item.title?.split(" - ")[1] || "",
+          numberOfCustomers: getField("Customers"),
+          communitiesReceived: getField("Communities"),
+          institutionCustomers: getField("Institution Customers"),
+          nursingMothersQuintals: getField("Nursing Mothers"),
+          communityQuintals: getField("Community"),
+          institutionQuintals: getField("Institution"),
+          totalQuintals: getField("Total"),
+        };
+      });
+
+      const res = await fetch("/api/data/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries: parsed, fileName }),
+      });
+
+      if (!res.ok) {
+        console.error("Failed to save to database:", await res.text());
+      }
+    } catch (err) {
+      console.error("Error saving to database:", err);
+    }
   };
 
   const distributionData = useMemo(() => {

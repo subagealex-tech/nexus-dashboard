@@ -106,7 +106,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        setData(parsed.map((item: any) => ({
+        const seen = new Set<string>();
+        const deduped = parsed.filter((item: any) => {
+          if (seen.has(item.id)) return false;
+          seen.add(item.id);
+          return true;
+        });
+        setData(deduped.map((item: any) => ({
           ...item,
           createdAt: new Date(item.createdAt),
           updatedAt: new Date(item.updatedAt),
@@ -127,7 +133,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [data, isLoaded]);
 
   const addData = (entries: DataEntry[]) => {
-    setData(prev => [...entries, ...prev]);
+    setData(prev => {
+      const existingIds = new Set(prev.map(e => e.id));
+      const newEntries = entries.filter(e => !existingIds.has(e.id));
+      return [...newEntries, ...prev];
+    });
   };
 
   const updateData = (id: string, entry: Partial<DataEntry>) => {
