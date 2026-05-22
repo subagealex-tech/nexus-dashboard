@@ -7,6 +7,11 @@ const logger = {
   debug: () => {},
 };
 
+// Auto-detect NEXTAUTH_URL on Vercel if not set
+if (!process.env.NEXTAUTH_URL && process.env.VERCEL_URL) {
+  process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
