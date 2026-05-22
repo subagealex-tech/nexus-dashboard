@@ -1,7 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const url = process.env.DATABASE_URL;
+if (!url) throw new Error("DATABASE_URL environment variable is required");
+const adapter = new PrismaPg({ connectionString: url });
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
